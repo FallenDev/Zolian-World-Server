@@ -31,6 +31,9 @@ namespace VFolders
 
             var isOneColumn = window.GetMemberValue<int>("m_ViewMode") == 0;
 
+            var prevSelection = Selection.objects;
+
+
             void navbarGui()
             {
                 if (!navbars_byWindow.ContainsKey(window))
@@ -170,6 +173,20 @@ namespace VFolders
                     window.position.SetPos(rectX, clipAtY - 1).SetSize(12321, 1).Draw(Greyscale(.175f)); // line under breadcrumbs
 
             }
+            void preventSelectionChangeInOtherBrowsers()
+            {
+                if (Selection.objects.SequenceEqual(prevSelection)) return;
+
+
+                allBrowsers.ForEach(r => r?.SetMemberValue("m_InternalSelectionChange", true));
+
+                EditorApplication.delayCall += () =>
+                    allBrowsers.ForEach(r => r?.SetMemberValue("m_InternalSelectionChange", false));
+
+            }
+
+
+
 
 
 
@@ -182,6 +199,7 @@ namespace VFolders
             defaultGuiWithOffset();
             treeViewShadow();
             listAreaShadow();
+            preventSelectionChangeInOtherBrowsers();
 
             if (!doNavbarFirst)
                 navbarGui();
@@ -823,8 +841,6 @@ namespace VFolders
 
         static void Shortcuts() // globalEventHandler 
         {
-            if (!curEvent.isKeyDown) return;
-            if (curEvent.keyCode == KeyCode.None) return;
             if (EditorWindow.mouseOverWindow is not EditorWindow hoveredWindow) return;
             if (hoveredWindow.GetType() != t_ProjectBrowser) return;
 
@@ -879,10 +895,58 @@ namespace VFolders
                 controllers_byWindow[hoveredWindow].Isolate(lastHoveredTreeItem);
 
             }
+            void moveBack()
+            {
+                if (!curEvent.isMouseDown) return;
+                if (curEvent.mouseButton != 3) return;
+
+
+                var isOneColumn = hoveredWindow.GetMemberValue<int>("m_ViewMode") == 0;
+
+                if (isOneColumn) return;
+
+
+
+                if (!histories_byWindow.ContainsKey(hoveredWindow))
+                    histories_byWindow[hoveredWindow] = new(hoveredWindow);
+
+                var history = histories_byWindow[hoveredWindow];
+
+                if (!history.prevFolderPaths.Any()) return;
+
+
+                history.MoveBack_TwoColumns();
+
+            }
+            void moveForward()
+            {
+                if (!curEvent.isMouseDown) return;
+                if (curEvent.mouseButton != 4) return;
+
+
+                var isOneColumn = hoveredWindow.GetMemberValue<int>("m_ViewMode") == 0;
+
+                if (isOneColumn) return;
+
+
+
+                if (!histories_byWindow.ContainsKey(hoveredWindow))
+                    histories_byWindow[hoveredWindow] = new(hoveredWindow);
+
+                var history = histories_byWindow[hoveredWindow];
+
+                if (!history.nextFolderPaths.Any()) return;
+
+
+                history.MoveForward_TwoColumns();
+
+            }
 
             toggleExpanded();
             collapseEverything();
             collapseEverythingElse();
+            moveBack();
+            moveForward();
 
         }
 
@@ -1580,7 +1644,7 @@ namespace VFolders
 
 
 
-        const string version = "2.1.5";
+        const string version = "2.1.7";
 
     }
 
